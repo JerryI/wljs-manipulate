@@ -66,7 +66,7 @@ With[{
         plotRange = 1.1 {MinMax[pts[[All,1]]], MinMax[pts[[All,2]] // Flatten]};
       ];
 
-      Print[plotRange];
+
 
       With[{
         opts = Sequence[
