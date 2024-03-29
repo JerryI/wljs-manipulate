@@ -4,7 +4,7 @@
   "description": "A helper library for making interactive plots for WLJS Notebook",
   "defaultPackage": true,
   "wljs-meta": {
-    "kernel": "src/Kernel.wl",
+    "kernel": "Kernel.wl",
     "category": "Plotting & Graphics",
     "priority": 1002
   },
