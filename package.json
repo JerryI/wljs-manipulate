@@ -1,0 +1,21 @@
+{
+  "name": "wljs-manipulate",
+  "version": "0.0.1",
+  "description": "A helper library for making interactive plots for WLJS Notebook",
+  "defaultPackage": true,
+  "wljs-meta": {
+    "kernel": "src/Kernel.wl",
+    "category": "Plotting & Graphics",
+    "priority": 1002
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JerryI/wljs-manipulate"
+  },
+  "author": "Kirill Vasin",
+  "license": "GPL",
+  "bugs": {
+    "url": "https://github.com/JerryI/wljs-manipulate/issues"
+  },
+  "homepage": "https://github.com/JerryI/wljs-manipulate#readme"
+}
