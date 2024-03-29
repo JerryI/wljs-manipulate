@@ -98,38 +98,38 @@ With[{
 ]
 
 
-singleTrace[anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, pts, sampler},
+singleTrace[anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, Global`pts, sampler},
 
       sampler[a_] := Select[
         Table[{t, anonymous @@ Join[{t}, a]}, {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&];
 
-      pts = sampler[#["Initial"] &/@ vars];
+      Global`pts = sampler[#["Initial"] &/@ vars];
       
       sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
       sliders = InputGroup[sliders];
       
-      EventHandler[sliders, Function[data, pts = sampler[data]]];
+      EventHandler[sliders, Function[data, Global`pts = sampler[data]]];
 
 
       Row[{
-          Graphics[{AbsoluteThickness[2], style[[1]], Line[pts // Offload]}, opts],
+          Graphics[{AbsoluteThickness[2], style[[1]], Line[Global`pts // Offload]}, opts],
           sliders
       }]
 ]
 
-multipleTraces[anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler},
+multipleTraces[anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler, Global`pts},
 
       sampler[a_] := Select[
         Table[anonymous @@ Join[{t}, a], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&] // Transpose;
 
-      pts = sampler[#["Initial"] &/@ vars];
+      Global`pts = sampler[#["Initial"] &/@ vars];
       
       sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
       sliders = InputGroup[sliders];
       
-      EventHandler[sliders, Function[data, pts = sampler[data]]];
+      EventHandler[sliders, Function[data, Global`pts = sampler[data]]];
 
 
       Row[{
@@ -141,7 +141,7 @@ multipleTraces[anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_
             },
               
               {color, Line[With[{
-                points = Transpose[{xaxis, pts[[i]]}]
+                points = Transpose[{xaxis, Global`pts[[i]]}]
               },
                 points
               ]]} // Offload
