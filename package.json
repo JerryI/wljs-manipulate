@@ -1,6 +1,6 @@
 {
   "name": "wljs-manipulate",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A helper library for making interactive plots for WLJS Notebook",
   "defaultPackage": true,
   "wljs-meta": {
