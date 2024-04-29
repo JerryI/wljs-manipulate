@@ -2,8 +2,7 @@ BeginPackage["JerryI`Notebook`ManipulateUtils`", {
     "JerryI`Notebook`Graphics2D`",
     "Notebook`Kernel`Inputs`",
     "JerryI`Misc`Events`",
-    "JerryI`Misc`WLJS`Transport`",
-    "Notebook`Editor`FrontendObject`"
+    "JerryI`Misc`WLJS`Transport`"
 }]
 
 ManipulatePlot::usage = "ManipulatePlot[f_, {x, min, max}, {p1, min, max}, ...] an interactive plot of a function f[x, p1] with p1 given as a parameter"
@@ -174,12 +173,6 @@ SetAttributes[multipleTraces, HoldAll]
 Options[ManipulatePlot] = {PlotRange -> Automatic, "SamplingPoints" -> 200.0, ImageSize -> {400, 300}, PlotStyle->ColorData[97, "ColorList"], TransitionType->"Linear", TransitionDuration->50, Epilog->{}, Prolog->{}, AxesLabel->{}};
 
 SetAttributes[ManipulatePlot, HoldAll]
-
-
-Offload`FromEventObject[o_EventObject] := With[{view = o[[1]]["View"], sym = Unique["OffloadGenerated"]}, 
-  EventHandler[o, Function[x, sym = x]] // EventFire;
-  Interpretation[CreateFrontEndObject[view], Offload[sym]]
-]
 
 
 End[]
