@@ -1,7 +1,11 @@
 {
   "name": "wljs-manipulate",
-  "version": "0.0.3",
-  "description": "A helper library for making interactive plots for WLJS Notebook",
+  "version": "0.0.4",
+  "description": "A helper library for making interactive plots & other things for WLJS Notebook",
+  "scripts": {
+    "build": "node --max-old-space-size=8192 ./node_modules/.bin/rollup --config rollup.config.mjs",
+    "restore": "mkdir _temp && cd _temp && git clone https://github.com/JerryI/wljs-manipulate && mv wljs-manipulate/.git ../.git && cd .. && rm -rf _temp"
+  },  
   "defaultPackage": true,
   "wljs-meta": {
     "kernel": "Kernel.wl",
