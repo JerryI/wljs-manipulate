@@ -2,7 +2,10 @@ BeginPackage["JerryI`Notebook`ManipulateUtils`", {
     "JerryI`Notebook`Graphics2D`",
     "Notebook`Kernel`Inputs`",
     "JerryI`Misc`Events`",
-    "JerryI`Misc`WLJS`Transport`"
+    "JerryI`Misc`Language`",
+    "JerryI`Misc`WLJS`Transport`",
+    "Notebook`Editor`Boxes`",
+    "Notebook`EditorUtils`"
 }]
 
 ManipulatePlot::usage = "ManipulatePlot[f_, {x, min, max}, {p1, min, max}, ...] an interactive plot of a function f[x, p1] with p1 given as a parameter"
@@ -10,9 +13,59 @@ ManipulatePlot::usage = "ManipulatePlot[f_, {x, min, max}, {p1, min, max}, ...] 
 Unprotect[Manipulate]
 ClearAll[Manipulate]
 
+Unprotect[Refresh]
+ClearAll[Refresh]
+
 Manipulate[__] := Style["Not supported! Please, use ManipulatePlot or general dynamics", Background->Yellow]
 
+RefreshBox;
+
 Begin["`Internal`"]
+
+Refresh /: MakeBoxes[Refresh[expr_, updateInterval_, OptionsPattern[] ], StandardForm ] := With[{
+  interval = If[MatchQ[updateInterval, _Quantity], UnitConvert[updateInterval, "Milliseconds"] // QuantityMagnitude, updateInterval 1000],
+  event = CreateUUID[],
+  evaluated = expr
+},
+  LeakyModule[{
+    Global`str = ToString[evaluated, StandardForm]
+  },
+
+      EventHandler[event, Function[Null,
+        Global`str = ToString[expr, StandardForm]
+      ] ];
+
+    With[{
+      editor = EditorView[Global`str // Offload, "ReadOnly"->True] // CreateFrontEndObject
+    },
+    
+        ViewBox[evaluated, RefreshBox[editor, event, interval] ]
+    ]
+  ]
+]
+
+Refresh /: MakeBoxes[Refresh[expr_, ev_String | ev_EventObject, OptionsPattern[] ], StandardForm ] := With[{
+  event = CreateUUID[],
+  evaluated = expr
+},
+  LeakyModule[{
+    Global`str = ToString[evaluated, StandardForm]
+  },
+  
+    EventHandler[ev, Function[Null,
+        Global`str = ToString[expr, StandardForm]
+    ] ];
+
+    With[{
+      editor = EditorView[Global`str // Offload, "ReadOnly"->True] // CreateFrontEndObject
+    },
+
+      ViewBox[evaluated, RefreshBox[editor, event, 0] ]
+    ]
+  ]
+]
+
+SetAttributes[Refresh, HoldFirst]
 
 If[$VersionNumber < 13.3,
   RealValuedNumericQ = NumericQ
