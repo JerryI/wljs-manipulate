@@ -14,7 +14,6 @@ Unprotect[Manipulate]
 ClearAll[Manipulate]
 
 Unprotect[Refresh]
-ClearAll[Refresh]
 
 Manipulate[__] := Style["Not supported! Please, use ManipulatePlot or general dynamics", Background->Yellow]
 
@@ -36,13 +35,13 @@ Refresh /: MakeBoxes[Refresh[expr_, updateInterval_, OptionsPattern[] ], Standar
       ] ];
 
     With[{
-      editor = EditorView[Global`str // Offload, "ReadOnly"->True] // CreateFrontEndObject
+      editor = EditorView[Global`str // Offload, "ReadOnly"->True, "ForceUpdate"->True] // CreateFrontEndObject
     },
     
         ViewBox[evaluated, RefreshBox[editor, event, interval] ]
     ]
   ]
-]
+] // Quiet
 
 Refresh /: MakeBoxes[Refresh[expr_, ev_String | ev_EventObject, OptionsPattern[] ], StandardForm ] := With[{
   event = CreateUUID[],
@@ -57,13 +56,13 @@ Refresh /: MakeBoxes[Refresh[expr_, ev_String | ev_EventObject, OptionsPattern[]
     ] ];
 
     With[{
-      editor = EditorView[Global`str // Offload, "ReadOnly"->True] // CreateFrontEndObject
+      editor = EditorView[Global`str // Offload, "ReadOnly"->True, "ForceUpdate"->True] // CreateFrontEndObject
     },
 
       ViewBox[evaluated, RefreshBox[editor, event, 0] ]
     ]
   ]
-]
+] // Quiet
 
 SetAttributes[Refresh, HoldFirst]
 
