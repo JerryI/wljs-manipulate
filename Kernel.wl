@@ -9,6 +9,7 @@ BeginPackage["JerryI`Notebook`ManipulateUtils`", {
 }]
 
 ManipulatePlot::usage = "ManipulatePlot[f_, {x, min, max}, {p1, min, max}, ...] an interactive plot of a function f[x, p1] with p1 given as a parameter"
+ManipulateParametricPlot::usage = ""
 
 Unprotect[Manipulate]
 ClearAll[Manipulate]
@@ -92,8 +93,14 @@ makeFunction[f_, variables__] := With[{v = variables},
 SetAttributes[makeFunction, HoldFirst]
 SetAttributes[TempHeld, HoldAll]
 
+ManipulateParametricPlot[all__] := manipulatePlot[xyChannel, all]
 
-ManipulatePlot[f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[]] := 
+ManipulatePlot[all__] := manipulatePlot[yChannel, all]
+
+yChannel[t_, y_] := {t, y}
+xyChannel[t_, y_] := y
+
+manipulatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := 
 With[{
   vars = Map[makeVariableObject, Unevaluated @ List[paramters]], 
   plotPoints = OptionValue["SamplingPoints"]
@@ -120,7 +127,7 @@ With[{
 
       
       sampler[args_] := Select[
-        Table[{t, anonymous @@ Join[{t}, args]}, {t, tmin, tmax, (tmax-tmin)/plotPoints}]
+        Table[tracer[t, anonymous @@ Join[{t}, args] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[# // Flatten, RealValuedNumericQ]&];
 
       (* test sampling of f *)
@@ -149,9 +156,9 @@ With[{
       
         (* two cases: single curve or multiple *)
         If[Depth[pts] === 3,
-          singleTrace[anonymous, t, tmin, tmax, length, style, vars, opts]
+          singleTrace[tracer, anonymous, t, tmin, tmax, length, style, vars, opts]
         ,
-          multipleTraces[anonymous, traces, t, tmin, tmax, length, style, vars, opts]
+          multipleTraces[tracer, anonymous, traces, t, tmin, tmax, length, style, vars, opts]
         ]
 
       ]
@@ -162,10 +169,10 @@ With[{
 ]
 
 
-singleTrace[anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, Global`pts, sampler},
+singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, Global`pts, sampler},
       (* sampling of f *)
       sampler[a_] := Select[
-        Table[{t, anonymous @@ Join[{t}, a]}, {t, tmin, tmax, (tmax-tmin)/plotPoints}]
+        Table[tracer[t, anonymous @@ Join[{t}, a] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&];
 
       Global`pts = sampler[#["Initial"] &/@ vars];
@@ -184,7 +191,7 @@ singleTrace[anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] :=
       }]
 ]
 
-multipleTraces[anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler, Global`pts},
+multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler, Global`pts},
 
       sampler[a_] := Select[
         Table[anonymous @@ Join[{t}, a], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
@@ -222,9 +229,12 @@ multipleTraces[anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_
 SetAttributes[singleTrace, HoldAll]
 SetAttributes[multipleTraces, HoldAll]
 
-Options[ManipulatePlot] = {PlotRange -> Automatic, "SamplingPoints" -> 200.0, ImageSize -> {400, 300}, PlotStyle->ColorData[97, "ColorList"], TransitionType->"Linear", TransitionDuration->50, Epilog->{}, Prolog->{}, AxesLabel->{}};
+Options[manipulatePlot] = {PlotRange -> Automatic, "SamplingPoints" -> 200.0, ImageSize -> {400, 300}, PlotStyle->ColorData[97, "ColorList"], TransitionType->"Linear", TransitionDuration->50, Epilog->{}, Prolog->{}, AxesLabel->{}};
+Options[ManipulatePlot] = Options[manipulatePlot]
+Options[ManipulateParametricPlot] = Options[manipulatePlot]
 
 SetAttributes[ManipulatePlot, HoldAll]
+SetAttributes[manipulatePlot, HoldAll]
 
 
 End[]
