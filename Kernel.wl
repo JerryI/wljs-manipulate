@@ -11,12 +11,21 @@ BeginPackage["JerryI`Notebook`ManipulateUtils`", {
 ManipulatePlot::usage = "ManipulatePlot[f_, {x, min, max}, {p1, min, max}, ...] an interactive plot of a function f[x, p1] with p1 given as a parameter"
 ManipulateParametricPlot::usage = ""
 
+AnimatePlot::usage = "AnimatePlot[f_, {x, min, max}, {t, min, max}]"
+AnimateParametricPlot::usage = ""
+
 Unprotect[Manipulate]
 ClearAll[Manipulate]
 
+Unprotect[Animate]
+ClearAll[Animate]
+
 Unprotect[Refresh]
 
+Animate[__] := Style["Not supported! Please, use AnimatePlot or general dynamics", Background->Yellow]
 Manipulate[__] := Style["Not supported! Please, use ManipulatePlot or general dynamics", Background->Yellow]
+
+AnimatePlot;
 
 RefreshBox;
 
@@ -236,6 +245,139 @@ Options[ManipulateParametricPlot] = Options[manipulatePlot]
 SetAttributes[ManipulatePlot, HoldAll]
 SetAttributes[manipulatePlot, HoldAll]
 
+animatePlot;
+AnimatePlot;
+
+Options[animatePlot] = Join[Options[manipulatePlot], {AnimationRate -> 24}];
+Options[AnimatePlot] = Options[animatePlot];
+
+animatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := 
+With[{
+  vars = Map[makeVariableObject, Unevaluated @ List[paramters] ], 
+  plotPoints = OptionValue["SamplingPoints"]
+},
+
+  If[Length[List[paramters] ] > 1, Return[Style["Use single parameter for the animation", Background->Yellow] ] ];
+
+  With[{
+    (* wrap f to a pure function *)
+    anonymous = With[{s = Extract[#, "Symbol", TempHeld] &/@ Join[{<|"Symbol":>t|>}, vars]},
+
+                  makeFunction[f, s] /. {TempHeld[x_] -> x} // Quiet
+              ],
+    
+    size = OptionValue[ImageSize],
+
+    transitionType = OptionValue[TransitionType],
+    transitionDuration = OptionValue[TransitionDuration],
+
+    axes = OptionValue[AxesLabel],
+    prolog = OptionValue[Prolog],
+    epilog = OptionValue[Epilog],
+    rate = OptionValue[AnimationRate],
+    style = {OptionValue[PlotStyle]}//Flatten
+  },
+    Module[{pts, plotRange = OptionValue[PlotRange], sampler},
+
+      
+      sampler[args_] := Select[
+        Table[tracer[t, anonymous @@ Join[{t}, args] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
+      , AllTrue[# // Flatten, RealValuedNumericQ]&];
+
+      (* test sampling of f *)
+      pts = sampler[#["Initial"] &/@ vars];
+
+      If[plotRange === Automatic,
+        plotRange = 1.1 {MinMax[pts[[All,1]]], MinMax[pts[[All,2]] // Flatten]};
+      ];
+
+
+
+      With[{
+        opts = Sequence[
+          ImageSize->size, 
+          PlotRange->plotRange, 
+          Axes->True, 
+          TransitionType->transitionType, 
+          TransitionDuration->transitionDuration, 
+          Prolog -> prolog,
+          AxesLabel -> axes
+        ],
+        traces = Length[{pts[[1,2]]} // Flatten],
+        length = plotPoints
+      },
+      
+        (* two cases: single curve or multiple *)
+        If[Depth[pts] === 3,
+          singleAnimatedTrace[tracer, anonymous, t, tmin, tmax, length, style, vars, Epilog -> epilog, AnimationRate -> rate, opts]
+        ,
+          multipleAnimatedTraces[tracer, anonymous, traces, t, tmin, tmax, length, style, vars, Epilog -> epilog, AnimationRate -> rate, opts]
+        ]
+
+      ]
+
+
+    ]
+  ]
+]
+
+singleAnimatedTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, Rule[Epilog, epilog_], Rule[AnimationRate, rate_], opts__] := Module[{dataset = {}, sliders, Global`pts, sampler, ranges},
+      (* sampling of f *)
+      sampler[a_] := Select[
+        Table[tracer[t, anonymous @@ Join[{t}, a] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
+      , AllTrue[#, RealValuedNumericQ]&];
+
+      Global`pts = sampler[#["Initial"] &/@ vars];
+      
+      (* ranges *)
+      ranges = With[{j =First[vars]}, Table[{i}, {i, j["Min"], j["Max"], j["Step"]}] ];
+      
+      dataset = sampler /@ ranges;
+
+      Graphics[{AbsoluteThickness[2], style[[1]], Line[Global`pts // Offload]}, Epilog->{Animate`Shutter[Global`pts, dataset, rate], epilog}, opts]
+]
+
+SetAttributes[Animate`Shutter, HoldFirst];
+
+multipleAnimatedTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, Rule[Epilog, epilog_], Rule[AnimationRate, rate_], opts__] := Module[{sliders, ranges, dataset, sampler, Global`pts},
+
+      sampler[a_] := Select[
+        Table[anonymous @@ Join[{t}, a], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
+      , AllTrue[#, RealValuedNumericQ]&] // Transpose;
+
+      Global`pts = sampler[#["Initial"] &/@ vars];
+      
+      ranges = With[{j =First[vars]}, Table[{i}, {i, j["Min"], j["Max"], j["Step"]}] ];
+      
+      dataset = sampler /@ ranges;
+
+
+      Graphics[{AbsoluteThickness[2], 
+            (* combine contstant X axis list with different dynamic Y lists *)
+            Table[With[{
+              i = i,
+              color = If[i > Length[style], style[[1]], style[[i]]],
+              xaxis = Table[t, {t, tmin, tmax, (tmax-tmin)/plotPoints}]
+            },
+              
+              {color, Line[With[{
+                points = Transpose[{xaxis, Global`pts[[i]]}]
+              },
+                points
+              ] ]} // Offload
+            ]
+            , {i, traces}]
+      }, Epilog->{Animate`Shutter[Global`pts, dataset, rate], epilog}, opts]
+]
+
+SetAttributes[singleAnimatedTrace, HoldAll]
+SetAttributes[multipleAnimatedTraces, HoldAll]
+
+AnimatePlot[all__] := animatePlot[yChannel, all]
+SetAttributes[AnimatePlot, HoldAll]
+
+AnimateParametricPlot[all__] := animatePlot[xyChannel, all]
+SetAttributes[AnimateParametricPlot, HoldAll]
 
 End[]
 EndPackage[]
