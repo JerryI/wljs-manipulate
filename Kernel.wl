@@ -14,6 +14,8 @@ ManipulateParametricPlot::usage = ""
 AnimatePlot::usage = "AnimatePlot[f_, {x, min, max}, {t, min, max}]"
 AnimateParametricPlot::usage = ""
 
+ListAnimatePlot::usage = ""
+
 Unprotect[Manipulate]
 ClearAll[Manipulate]
 
@@ -191,7 +193,7 @@ singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, o
       sliders = InputGroup[sliders];
       
       (* update pts when dragged *)
-      EventHandler[sliders, Function[data, Global`pts = sampler[data]]];
+      EventHandler[sliders, Function[data, Global`pts = sampler[data] ] ];
 
 
       Row[{
@@ -250,6 +252,7 @@ AnimatePlot;
 
 Options[animatePlot] = Join[Options[manipulatePlot], {AnimationRate -> 24}];
 Options[AnimatePlot] = Options[animatePlot];
+Options[ListAnimatePlot] = Join[Options[animatePlot], {InterpolationOrder -> 1}];
 
 animatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := 
 With[{
@@ -378,6 +381,63 @@ SetAttributes[AnimatePlot, HoldAll]
 
 AnimateParametricPlot[all__] := animatePlot[xyChannel, all]
 SetAttributes[AnimateParametricPlot, HoldAll]
+
+
+ListAnimatePlot[list_List, opts: OptionsPattern[] ] := With[{intOrder = OptionValue[InterpolationOrder]},
+  Switch[ArrayDepth[list // First],
+    1,
+      (* single y traces *)
+      With[{t = Interpolation[Transpose[{Range[Length[#] ], #}], InterpolationOrder->intOrder] &/@ list},
+        Module[{func,x,i},
+          func[x_?NumberQ, j_?NumberQ] := t[[j // Round]][x];
+          AnimatePlot[func[x, i], {x, 1, Length[list // First]}, {i, 1, Length[list], 1}, opts]
+        ]
+        
+      ]
+    ,
+
+    2,
+      If[Length[list // First // First] > 2,
+        (* multiple y traces *)
+        
+With[{t = Map[Function[{l}, Interpolation[Transpose[{Range[Length[#] ], #}], InterpolationOrder->intOrder] &/@ l], list]},
+        Module[{func,x,i},
+          func[xx_?NumberQ, jj_?NumberQ] := Map[Function[k, k[xx]], t[[jj // Round]]];
+          AnimatePlot[func[x, i], {x, 1, Length[list // First // First]}, {i, 1, Length[list], 1}]
+        ]
+        
+      ]
+        
+      ,
+        (* single xy traces *)
+
+      With[{t = Interpolation[#, InterpolationOrder->intOrder] &/@ list},
+        Module[{func,x,i},
+          func[x_?NumberQ, j_?NumberQ] := t[[j // Round]][x];
+          AnimatePlot[func[x, i], {x, list[[1,All,1]] // Min, list[[1,All,1]] // Max}, {i, 1, Length[list], 1}, opts]
+        ]
+        
+      ]
+
+      ]
+
+    ,
+
+    3,
+      (* multiple xy traces *)
+
+With[{t = Map[Function[{l}, Interpolation[#, InterpolationOrder->intOrder] &/@ l], list]},
+        Module[{func,x,i},
+          func[xx_?NumberQ, jj_?NumberQ] := Map[Function[k, k[xx]], t[[jj // Round]]];
+          AnimatePlot[func[x, i], {x, list[[1,1,All,1]] // Min, list[[1,1,All,1]] // Max}, {i, 1, Length[list], 1}]
+        ]
+        
+      ]
+
+      
+  ]
+]
+
 
 End[]
 EndPackage[]
