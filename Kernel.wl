@@ -32,6 +32,8 @@ Begin["`Internal`"]
 Unprotect[Manipulate]
 ClearAll[Manipulate]
 
+ClearAll[Manipulate]
+
 Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}..] := Module[{Global`code, sliders}, With[{
   vars = Map[makeVariableObject, Unevaluated @ List[parameters]]
 },
@@ -43,15 +45,17 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}..] := 
                   makeFunction[f, s] /. {TempHeld[x_] -> x} // Quiet
               ]
     },
+
+      test =vars;
       
-      Global`code = ToString[anonymous[#["Initial"] &/@ vars], StandardForm];
+      Global`code = ToString[anonymous @@ (#["Initial"] &/@ vars), StandardForm];
       
       (* controls *)
       sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
       sliders = InputGroup[sliders];
       
       (* update pts when dragged *)
-      EventHandler[sliders, Function[data, Global`code = ToString[anonymous[data], StandardForm] ] ];
+      EventHandler[sliders, Function[data, Global`code = ToString[anonymous @@ data, StandardForm] ] ];
 
 
       Row[{
@@ -59,7 +63,7 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}..] := 
           sliders
       }]
     ]
-] ]
+]]
 
 SetAttributes[Manipulate, HoldAll]
 
