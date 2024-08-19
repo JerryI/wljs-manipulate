@@ -16,22 +16,52 @@ AnimateParametricPlot::usage = ""
 
 ListAnimatePlot::usage = ""
 
-Unprotect[Manipulate]
-ClearAll[Manipulate]
-
 Unprotect[Animate]
 ClearAll[Animate]
 
 Unprotect[Refresh]
 
 Animate[__] := Style["Not supported! Please, use AnimatePlot or general dynamics", Background->Yellow]
-Manipulate[__] := Style["Not supported! Please, use ManipulatePlot or general dynamics", Background->Yellow]
 
 AnimatePlot;
 
 RefreshBox;
 
 Begin["`Internal`"]
+
+Unprotect[Manipulate]
+ClearAll[Manipulate]
+
+Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}..] := Module[{Global`code, sliders}, With[{
+  vars = Map[makeVariableObject, Unevaluated @ List[parameters]]
+},
+ 
+    With[{
+    (* wrap f to a pure function *)
+    anonymous = With[{s = Extract[#, "Symbol", TempHeld] &/@ vars},
+
+                  makeFunction[f, s] /. {TempHeld[x_] -> x} // Quiet
+              ]
+    },
+      
+      Global`code = ToString[anonymous[#["Initial"] &/@ vars], StandardForm];
+      
+      (* controls *)
+      sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
+      sliders = InputGroup[sliders];
+      
+      (* update pts when dragged *)
+      EventHandler[sliders, Function[data, Global`code = ToString[anonymous[data], StandardForm] ] ];
+
+
+      Row[{
+          EditorView[Global`code // Offload],
+          sliders
+      }]
+    ]
+] ]
+
+SetAttributes[Manipulate, HoldAll]
 
 Refresh /: MakeBoxes[Refresh[expr_, updateInterval_, OptionsPattern[] ], StandardForm ] := With[{
   interval = If[MatchQ[updateInterval, _Quantity], UnitConvert[updateInterval, "Milliseconds"] // QuantityMagnitude, updateInterval 1000],
