@@ -58,9 +58,9 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}..] := 
       EventHandler[sliders, Function[data, Global`code = ToString[anonymous @@ data, StandardForm] ] ];
 
 
-      Row[{
-          EditorView[Global`code // Offload],
-          sliders
+      Column[{
+          sliders,
+          EditorView[Global`code // Offload]
       }]
     ]
 ]]
