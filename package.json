@@ -1,6 +1,6 @@
 {
   "name": "wljs-manipulate",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "A helper library for making interactive plots & other things for WLJS Notebook",
   "scripts": {
     "build": "node --max-old-space-size=8192 ./node_modules/.bin/rollup --config rollup.config.mjs",

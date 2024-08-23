@@ -34,10 +34,24 @@ ClearAll[Manipulate]
 
 ClearAll[Manipulate]
 
-Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}..] := Module[{Global`code, sliders}, With[{
-  vars = Map[makeVariableObject, Unevaluated @ List[parameters]]
+Manipulate`Cached = <||>;
+
+useCache[hash_, f_, values_] := If[KeyExistsQ[Manipulate`Cached[hash], values],
+  Manipulate`Cached[hash, values]
+,
+  With[{r = f @ values},
+    Manipulate`Cached[hash, values] = r;
+    r
+  ]
+]
+
+Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := Module[{Global`code, sliders}, With[{
+  vars = Map[makeVariableObject, Unevaluated @ List[parameters] ],
+  hash = Hash[{f, parameters}]
 },
  
+    Manipulate`Cached[hash] = <||>; (* look up table *)
+
     With[{
     (* wrap f to a pure function *)
     anonymous = With[{s = Extract[#, "Symbol", TempHeld] &/@ vars},
@@ -48,14 +62,14 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}..] := 
 
       test =vars;
       
-      Global`code = ToString[anonymous @@ (#["Initial"] &/@ vars), StandardForm];
+      Global`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, (#["Initial"] &/@ vars) ];
       
       (* controls *)
       sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
       sliders = InputGroup[sliders];
       
       (* update pts when dragged *)
-      EventHandler[sliders, Function[data, Global`code = ToString[anonymous @@ data, StandardForm] ] ];
+      EventHandler[sliders, Function[data, Global`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, data] ] ];
 
 
       Column[{
