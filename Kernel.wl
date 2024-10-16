@@ -21,7 +21,38 @@ ClearAll[Animate]
 
 Unprotect[Refresh]
 
-Animate[__] := Style["Not supported! Please, use AnimatePlot or general dynamics", Background->Yellow]
+Animate[__] := (
+  Message["Not supported in WLJS. Use AnimatePlot or general dynamics"];
+  Style["Not supported! Please, use AnimatePlot or general dynamics", Background->Yellow]
+)
+
+Manipulator[_] := (
+  Message["Not supported in WLJS. Use AnimatePlot or general dynamics"];
+  Style["Not supported! Please, use AnimatePlot or general dynamics", Background->Yellow]
+)
+
+
+
+Unprotect[ListAnimate]
+ClearAll[ListAnimate]
+
+Unprotect[Animator]
+ClearAll[Animator]
+
+Animator[_] := (
+  Message["Not supported in WLJS. Use AnimatePlot or general dynamics"];
+  Style["Not supported! Please, use AnimatePlot or general dynamics", Background->Yellow]
+)
+
+Animator[__] := (
+  Message["Not supported in WLJS. Use AnimatePlot or general dynamics"];
+  Style["Not supported! Please, use AnimatePlot or general dynamics", Background->Yellow]
+)
+
+ListAnimate[__] := (
+  Message["Not supported in WLJS. Use AnimatePlot or general dynamics"];
+  Style["Not supported! Please, use AnimatePlot or general dynamics", Background->Yellow]
+)
 
 AnimatePlot;
 
