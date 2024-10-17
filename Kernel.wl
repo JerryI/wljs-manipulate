@@ -56,7 +56,8 @@ ListAnimate[__] := (
 
 AnimatePlot;
 
-RefreshBox;
+(* register globally, cuz Refresh is also originally a system function *)
+System`RefreshBox;
 
 Begin["`Internal`"]
 
@@ -76,6 +77,8 @@ useCache[hash_, f_, values_] := If[KeyExistsQ[Manipulate`Cached[hash], values],
   ]
 ]
 
+SetAttributes[TempHeld, HoldAll]
+
 Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := Module[{Global`code, sliders}, With[{
   vars = Map[makeVariableObject, Unevaluated @ List[parameters] ],
   hash = Hash[{f, parameters}]
@@ -84,49 +87,66 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., Opt
     Manipulate`Cached[hash] = <||>; (* look up table *)
 
     With[{
-    (* wrap f to a pure function *)
+    (* wrap f into a pure function *)
     anonymous = With[{s = Extract[#, "Symbol", TempHeld] &/@ vars},
 
                   makeFunction[f, s] /. {TempHeld[x_] -> x} // Quiet
               ]
     },
 
-      test =vars;
-      
+      (* 
+         ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
+         Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
+      *)
       Global`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, (#["Initial"] &/@ vars) ];
       
       (* controls *)
       sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
       sliders = InputGroup[sliders];
       
-      (* update pts when dragged *)
+      (* update expression when any slider is dragged *)
       EventHandler[sliders, Function[data, Global`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, data] ] ];
 
 
       Column[{
           sliders,
-          EditorView[Global`code // Offload]
+          EditorView[Global`code // Offload] (* EditorView works only with strings *)
       }]
     ]
 ]]
 
 SetAttributes[Manipulate, HoldAll]
 
+Unprotect[Refresh]
+ClearAll[Refresh]
+
+FormatValues[Refresh] = {}
+
+Options[Refresh] = {}
+
+Refresh::usage = "Refresh[expr_, interval_] creates a dynamic widget, which reevalues expr every interval (in seconds or Quantity[]). Refresh[expr_, ev_EventObject] is updated by external event object ev"
+
 Refresh /: MakeBoxes[Refresh[expr_, updateInterval_, OptionsPattern[] ], StandardForm ] := With[{
   interval = If[MatchQ[updateInterval, _Quantity], UnitConvert[updateInterval, "Milliseconds"] // QuantityMagnitude, updateInterval 1000],
   event = CreateUUID[],
   evaluated = expr
 },
+  (* We need LeakyModule to fool WL's Garbage collector *)
   LeakyModule[{
+    (* 
+       ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
+       Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
+    *)    
     Global`str = ToString[evaluated, StandardForm]
   },
 
+  (* event is fired from JS side (RefreshBox) *)
       EventHandler[event, Function[Null,
         Global`str = ToString[expr, StandardForm]
       ] ];
 
     With[{
-      editor = EditorView[Global`str // Offload, "ReadOnly"->True, "ForceUpdate"->True] // CreateFrontEndObject
+      editor = EditorView[Global`str // Offload, "ReadOnly"->True] 
     },
     
         ViewBox[evaluated, RefreshBox[editor, event, interval] ]
@@ -142,12 +162,13 @@ Refresh /: MakeBoxes[Refresh[expr_, ev_String | ev_EventObject, OptionsPattern[]
     Global`str = ToString[evaluated, StandardForm]
   },
   
+  (* event is fired from WL side *)
     EventHandler[ev, Function[Null,
         Global`str = ToString[expr, StandardForm]
     ] ];
 
     With[{
-      editor = EditorView[Global`str // Offload, "ReadOnly"->True, "ForceUpdate"->True] // CreateFrontEndObject
+      editor = EditorView[Global`str // Offload, "ReadOnly"->True] 
     },
 
       ViewBox[evaluated, RefreshBox[editor, event, 0] ]
@@ -181,7 +202,6 @@ makeFunction[f_, variables__] := With[{v = variables},
 ]
 
 SetAttributes[makeFunction, HoldFirst]
-SetAttributes[TempHeld, HoldAll]
 
 ManipulateParametricPlot[all__] := manipulatePlot[xyChannel, all]
 
@@ -192,7 +212,7 @@ xyChannel[t_, y_] := y
 
 manipulatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := 
 With[{
-  vars = Map[makeVariableObject, Unevaluated @ List[paramters]], 
+  vars = Map[makeVariableObject, Unevaluated @ List[paramters]], (* convert all parameters, ranges to associations *)
   plotPoints = OptionValue["SamplingPoints"]
 },
 
@@ -215,7 +235,7 @@ With[{
   },
     Module[{pts, plotRange = OptionValue[PlotRange], sampler},
 
-      
+      (* a function that samples our expression and filters out "bad" values *)
       sampler[args_] := Select[
         Table[tracer[t, anonymous @@ Join[{t}, args] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[# // Flatten, RealValuedNumericQ]&];
@@ -265,6 +285,10 @@ singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, o
         Table[tracer[t, anonymous @@ Join[{t}, a] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&];
 
+    (* 
+       ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
+       Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
+    *) 
       Global`pts = sampler[#["Initial"] &/@ vars];
       
       (* controls *)
@@ -287,6 +311,11 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
         Table[anonymous @@ Join[{t}, a], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&] // Transpose;
 
+
+    (* 
+       ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
+       Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
+    *) 
       Global`pts = sampler[#["Initial"] &/@ vars];
       
       sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
