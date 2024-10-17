@@ -121,12 +121,14 @@ Unprotect[Refresh]
 
 Options[Refresh] = {UpdateInterval -> 1}
 
-Refresh::usage = "Refresh[expr_, UpdateInterval->interval] creates a dynamic widget, which reevalues expr every UpdateInterval (in seconds or Quantity[]). Refresh[expr_, ev_EventObject] is updated by external event object ev"
+
 
 
 *)
 
-Refresh[expr_, opts: OptionsPattern[] ] := Refresh[expr, OptionValue[UpdateInterval], opts ]
+Refresh::usage = "Refresh[expr_, UpdateInterval] creates a dynamic widget, which reevalues expr every UpdateInterval (in seconds or Quantity[]). Refresh[expr_, ev_EventObject] is updated by external event object ev"
+
+(* Refresh[expr_, Rule[UpdateInterval, updateInterval_Quantity] | Rule[UpdateInterval, updateInterval_?NumericQ] ] := Refresh[expr, updateInterval ] *)
 
 Refresh /: MakeBoxes[Refresh[expr_, updateInterval_Quantity | updateInterval_?NumericQ, OptionsPattern[] ], StandardForm ] := With[{
   interval = If[MatchQ[updateInterval, _Quantity], UnitConvert[updateInterval, "Milliseconds"] // QuantityMagnitude, updateInterval 1000],
