@@ -118,9 +118,6 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., Opt
 SetAttributes[Manipulate, HoldAll]
 
 Unprotect[Refresh]
-ClearAll[Refresh]
-
-FormatValues[Refresh] = {}
 
 Options[Refresh] = {UpdateInterval -> 1}
 
