@@ -116,12 +116,15 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., Opt
 ]]
 
 SetAttributes[Manipulate, HoldAll]
-
+(*
 Unprotect[Refresh]
 
 Options[Refresh] = {UpdateInterval -> 1}
 
 Refresh::usage = "Refresh[expr_, UpdateInterval->interval] creates a dynamic widget, which reevalues expr every UpdateInterval (in seconds or Quantity[]). Refresh[expr_, ev_EventObject] is updated by external event object ev"
+
+
+*)
 
 Refresh[expr_, opts: OptionsPattern[] ] := Refresh[expr, OptionValue[UpdateInterval], opts ]
 
