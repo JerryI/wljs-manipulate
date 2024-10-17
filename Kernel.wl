@@ -122,11 +122,13 @@ ClearAll[Refresh]
 
 FormatValues[Refresh] = {}
 
-Options[Refresh] = {}
+Options[Refresh] = {UpdateInterval -> 1}
 
-Refresh::usage = "Refresh[expr_, interval_] creates a dynamic widget, which reevalues expr every interval (in seconds or Quantity[]). Refresh[expr_, ev_EventObject] is updated by external event object ev"
+Refresh::usage = "Refresh[expr_, UpdateInterval->interval] creates a dynamic widget, which reevalues expr every UpdateInterval (in seconds or Quantity[]). Refresh[expr_, ev_EventObject] is updated by external event object ev"
 
-Refresh /: MakeBoxes[Refresh[expr_, updateInterval_, OptionsPattern[] ], StandardForm ] := With[{
+Refresh[expr_, opts: OptionsPattern[] ] := Refresh[expr, OptionValue[UpdateInterval], opts ]
+
+Refresh /: MakeBoxes[Refresh[expr_, updateInterval_Quantity | updateInterval_?NumericQ, OptionsPattern[] ], StandardForm ] := With[{
   interval = If[MatchQ[updateInterval, _Quantity], UnitConvert[updateInterval, "Milliseconds"] // QuantityMagnitude, updateInterval 1000],
   event = CreateUUID[],
   evaluated = expr
