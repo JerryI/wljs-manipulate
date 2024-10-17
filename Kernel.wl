@@ -126,7 +126,7 @@ Options[Refresh] = {UpdateInterval -> 1}
 
 *)
 
-Refresh::usage = "Refresh[expr_, UpdateInterval] creates a dynamic widget, which reevalues expr every UpdateInterval (in seconds or Quantity[]). Refresh[expr_, ev_EventObject] is updated by external event object ev"
+Refresh::usage = "Refresh[expr_, UpdateInterval_] creates a dynamic widget, which reevalues expr every UpdateInterval (in seconds or Quantity[]). Refresh[expr_, ev_EventObject] is updated by external event object ev"
 
 (* Refresh[expr_, Rule[UpdateInterval, updateInterval_Quantity] | Rule[UpdateInterval, updateInterval_?NumericQ] ] := Refresh[expr, updateInterval ] *)
 
@@ -205,7 +205,7 @@ makeFunction[f_, variables__] := With[{v = variables},
   Function[variables, f] 
 ]
 
-SetAttributes[makeFunction, HoldFirst]
+SetAttributes[makeFunction, HoldAll]
 
 ManipulateParametricPlot[all__] := manipulatePlot[xyChannel, all]
 
@@ -361,6 +361,9 @@ SetAttributes[manipulatePlot, HoldAll]
 
 animatePlot;
 AnimatePlot;
+
+SetAttributes[animatePlot, HoldAll]
+SetAttributes[AnimatePlot, HoldAll]
 
 Options[animatePlot] = Join[Options[manipulatePlot], {AnimationRate -> 24}];
 Options[AnimatePlot] = Options[animatePlot];
