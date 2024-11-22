@@ -84,6 +84,10 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., Opt
   hash = Hash[{f, parameters}]
 },
  
+    If[!AllTrue[vars, !FailureQ[#] &] || vars === $Failed,
+      Return[$Failed];
+    ];
+
     Manipulate`Cached[hash] = <||>; (* look up table *)
 
     With[{
@@ -198,6 +202,11 @@ makeVariableObject[{{s_Symbol, init_}, min_, max_, step_}] := <|"Symbol" :> s, "
 makeVariableObject[{s_Symbol}] := <|"Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->-1, "Max"->1, "Step" -> 0.1, "Initial" -> 0.|>
 makeVariableObject[{{s_Symbol, init_}}] := <|"Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->-1, "Max"->1, "Step" -> 0.1, "Initial" -> N[init]|>
 
+makeVariableObject[__] := (
+  Message[ManipulatePlot::badargs, "does not match the pattern"];
+  $Failed
+)
+
 SetAttributes[makeVariableObject, HoldAll]
 
 
@@ -214,11 +223,22 @@ ManipulatePlot[all__] := manipulatePlot[yChannel, all]
 yChannel[t_, y_] := {t, y}
 xyChannel[t_, y_] := y
 
+ManipulatePlot::badargs = "Unsupported sequence of arguments: `1`";
+
+manipulatePlot[__] := (
+  Message[ManipulatePlot::badargs, "???"];
+  $Failed
+)
+
 manipulatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := 
 With[{
   vars = Map[makeVariableObject, Unevaluated @ List[paramters]], (* convert all parameters, ranges to associations *)
   plotPoints = OptionValue["SamplingPoints"]
 },
+
+  If[!AllTrue[vars, !FailureQ[#] &] || vars === $Failed,
+    Return[$Failed];
+  ];
 
   With[{
     (* wrap f to a pure function *)
@@ -374,6 +394,10 @@ With[{
   vars = Map[makeVariableObject, Unevaluated @ List[paramters] ], 
   plotPoints = OptionValue["SamplingPoints"]
 },
+
+  If[!AllTrue[vars, !FailureQ[#] &] || vars === $Failed,
+    Return[$Failed];
+  ];
 
   If[Length[List[paramters] ] > 1, Return[Style["Use single parameter for the animation", Background->Yellow] ] ];
 
