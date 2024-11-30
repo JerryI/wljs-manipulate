@@ -79,10 +79,13 @@ useCache[hash_, f_, values_] := If[KeyExistsQ[Manipulate`Cached[hash], values],
 
 SetAttributes[TempHeld, HoldAll]
 
-Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := Module[{Global`code, sliders}, With[{
+
+Manipulate[f_, parameters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?NumericQ, _String}, ___?NumericQ} | {_Symbol | {_Symbol, _} | {_Symbol, _, _String}, _List}).., OptionsPattern[] ] := Module[{Global`code, sliders}, With[{
   vars = Map[makeVariableObject, Unevaluated @ List[parameters] ],
   hash = Hash[{f, parameters}]
 },
+
+    
  
     If[!AllTrue[vars, !FailureQ[#] &] || vars === $Failed,
       Return[$Failed];
@@ -92,9 +95,11 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., Opt
 
     With[{
     (* wrap f into a pure function *)
-    anonymous = With[{s = Extract[#, "Symbol", TempHeld] &/@ vars},
+    anonymous = With[{s = Extract[#, "Symbol", Hold] &/@ vars},
 
-                  makeFunction[f, s] /. {TempHeld[x_] -> x} // Quiet
+                  With[{vlist = Hold[s] /. {Hold[u_Symbol] :> u}},
+                    makeFunction[vlist, f]
+                  ]
               ]
     },
 
@@ -105,7 +110,17 @@ Manipulate[f_, parameters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., Opt
       Global`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, (#["Initial"] &/@ vars) ];
       
       (* controls *)
-      sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
+      sliders = Switch[#["Controller"],
+                  InputRange,
+                    InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"]), "Topic"->{Null, "Default"}],
+
+                  InputSelect,
+                    InputSelect[#["List"], #["Initial"], "Label"->(#["Label"])],
+                  
+                  _,
+                    Null
+                ] &/@ vars;
+
       sliders = InputGroup[sliders];
       
       (* update expression when any slider is dragged *)
@@ -191,16 +206,35 @@ If[$VersionNumber < 13.3,
 ];
 
 (* convert parameters to objects *)
-makeVariableObject[{s_Symbol, min_, max_}] := <|"Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->N[min], "Max"->N[max], "Step" -> N[((max-min)/50.0)], "Initial" -> N[((min + max)/2.0)]|>
 
-makeVariableObject[{{s_Symbol, init_}, min_, max_}] := <|"Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->N[min], "Max"->N[max], "Step" -> N[((max-min)/50.0)], "Initial" -> N[init]|>
+makeVariableObject[{s_Symbol, list_List}] := <|"Controller"->InputSelect, "Symbol" :> s, "Label"->ToString[Unevaluated[s]], "List"->list, "Initial" -> First[list]|>
 
-makeVariableObject[{s_Symbol, min_, max_, step_}] := <|"Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->N[min], "Max"->N[max], "Step" -> N[step], "Initial" -> Round[(min + max)/2.0 // N, step]|>
+makeVariableObject[{{s_Symbol, init_}, list_List}] := <|"Controller"->InputSelect, "Symbol" :> s, "Label"->ToString[Unevaluated[s]], "List"->list, "Initial" -> init|>
 
-makeVariableObject[{{s_Symbol, init_}, min_, max_, step_}] := <|"Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->N[min], "Max"->N[max], "Step" -> N[step], "Initial" -> Round[init // N, step]|>
+makeVariableObject[{{s_Symbol, init_, label_String}, list_List}] := <|"Controller"->InputSelect, "Symbol" :> s, "Label"->label, "List"->list, "Initial" -> init|>
 
-makeVariableObject[{s_Symbol}] := <|"Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->-1, "Max"->1, "Step" -> 0.1, "Initial" -> 0.|>
-makeVariableObject[{{s_Symbol, init_}}] := <|"Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->-1, "Max"->1, "Step" -> 0.1, "Initial" -> N[init]|>
+
+
+makeVariableObject[{s_Symbol, min_, max_}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->N[min], "Max"->N[max], "Step" -> N[((max-min)/50.0)], "Initial" -> N[((min + max)/2.0)]|>
+
+makeVariableObject[{{s_Symbol, init_}, min_, max_}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->N[min], "Max"->N[max], "Step" -> N[((max-min)/50.0)], "Initial" -> N[init]|>
+
+makeVariableObject[{{s_Symbol, init_, label_String}, min_, max_}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->label, "Min"->N[min], "Max"->N[max], "Step" -> N[((max-min)/50.0)], "Initial" -> N[init]|>
+
+
+makeVariableObject[{s_Symbol, min_, max_, step_}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->N[min], "Max"->N[max], "Step" -> N[step], "Initial" -> Round[(min + max)/2.0 // N, step]|>
+
+makeVariableObject[{{s_Symbol, init_}, min_, max_, step_}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->N[min], "Max"->N[max], "Step" -> N[step], "Initial" -> Round[init // N, step]|>
+
+makeVariableObject[{{s_Symbol, init_, label_String}, min_, max_, step_}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->label, "Min"->N[min], "Max"->N[max], "Step" -> N[step], "Initial" -> Round[init // N, step]|>
+
+
+makeVariableObject[{s_Symbol}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->-1, "Max"->1, "Step" -> 0.1, "Initial" -> 0.|>
+makeVariableObject[{{s_Symbol, init_}}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->ToString[Unevaluated[s]], "Min"->-1, "Max"->1, "Step" -> 0.1, "Initial" -> N[init]|>
+
+
+makeVariableObject[{{s_Symbol, init_, label_String}}] := <|"Controller"->InputRange, "Symbol" :> s, "Label"->label, "Min"->-1, "Max"->1, "Step" -> 0.1, "Initial" -> N[init]|>
+
 
 makeVariableObject[__] := (
   Message[ManipulatePlot::badargs, "does not match the pattern"];
@@ -210,8 +244,16 @@ makeVariableObject[__] := (
 SetAttributes[makeVariableObject, HoldAll]
 
 
-makeFunction[f_, variables__] := With[{v = variables}, 
-  Function[variables, f] 
+ClearAll[makeFunction];
+makeFunction[Hold[list_], f_] := If[MatchQ[list, {__Symbol}],
+  With[{l = list, ff = f},
+    Function @@ {l, ff}
+  ]
+,
+
+  Internal`LocalizedBlock[list,
+    Function[list, f]
+  ]
 ]
 
 SetAttributes[makeFunction, HoldAll]
@@ -228,13 +270,16 @@ ManipulatePlot::badargs = "Unsupported sequence of arguments: `1`";
 manipulatePlot[__] := (
   Message[ManipulatePlot::badargs, "???"];
   $Failed
-)
+) 
 
-manipulatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := 
+manipulatePlot::nonreal = "The result function does not return real numbers"
+
+manipulatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?NumericQ, _String}, ___?NumericQ} | {_Symbol | {_Symbol, _} | {_Symbol, _, _String}, _List}).., OptionsPattern[] ] := 
 With[{
   vars = Map[makeVariableObject, Unevaluated @ List[paramters]], (* convert all parameters, ranges to associations *)
   plotPoints = OptionValue["SamplingPoints"]
 },
+
 
   If[!AllTrue[vars, !FailureQ[#] &] || vars === $Failed,
     Return[$Failed];
@@ -242,10 +287,13 @@ With[{
 
   With[{
     (* wrap f to a pure function *)
-    anonymous = With[{s = Extract[#, "Symbol", TempHeld] &/@ Join[{<|"Symbol":>t|>}, vars]},
-
-                  makeFunction[f, s] /. {TempHeld[x_] -> x} // Quiet
+    anonymous = With[{s = Extract[#, "Symbol", Hold] &/@ Join[{<|"Symbol":>t|>}, vars]},
+                  With[{vlist = Hold[s] /. {Hold[u_Symbol] :> u}},
+                     makeFunction[vlist, f]
+                  ]
               ],
+    
+    
     
     size = OptionValue[ImageSize],
 
@@ -257,6 +305,9 @@ With[{
     epilog = OptionValue[Epilog],
     style = {OptionValue[PlotStyle]}//Flatten
   },
+
+    test = anonymous;
+    
     Module[{pts, plotRange = OptionValue[PlotRange], sampler},
 
       (* a function that samples our expression and filters out "bad" values *)
@@ -266,6 +317,11 @@ With[{
 
       (* test sampling of f *)
       pts = sampler[#["Initial"] &/@ vars];
+
+      If[Length[pts] == 0,
+        Message[manipulatePlot::nonreal];
+        Return[$Failed];
+      ];
 
       If[plotRange === Automatic,
         plotRange = 1.1 {MinMax[pts[[All,1]]], MinMax[pts[[All,2]] // Flatten]};
@@ -316,7 +372,17 @@ singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, o
       Global`pts = sampler[#["Initial"] &/@ vars];
       
       (* controls *)
-      sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
+      sliders = Switch[#["Controller"],
+                  InputRange,
+                    InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])],
+
+                  InputSelect,
+                    InputSelect[#["List"], #["Initial"], "Label"->(#["Label"])],
+                  
+                  _,
+                    Null
+                ] &/@ vars;
+
       sliders = InputGroup[sliders];
       
       (* update pts when dragged *)
@@ -342,7 +408,17 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
     *) 
       Global`pts = sampler[#["Initial"] &/@ vars];
       
-      sliders = InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])] &/@ vars;
+      sliders = Switch[#["Controller"],
+                  InputRange,
+                    InputRange[#["Min"], #["Max"], #["Step"], #["Initial"], "Label"->(#["Label"])],
+
+                  InputSelect,
+                    InputSelect[#["List"], #["Initial"], "Label"->(#["Label"])],
+                  
+                  _,
+                    Null
+                ] &/@ vars;
+
       sliders = InputGroup[sliders];
       
       EventHandler[sliders, Function[data, Global`pts = sampler[data]]];
@@ -389,7 +465,7 @@ Options[animatePlot] = Join[Options[manipulatePlot], {AnimationRate -> 24}];
 Options[AnimatePlot] = Options[animatePlot];
 Options[ListAnimatePlot] = Join[Options[animatePlot], {InterpolationOrder -> 1}];
 
-animatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:{_Symbol | {_Symbol, _?NumericQ}, ___?NumericQ}.., OptionsPattern[] ] := 
+animatePlot[tracer_, f_, {t_Symbol, tmin_?NumericQ, tmax_?NumericQ}, paramters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?NumericQ, _String}, ___?NumericQ} | {_Symbol | {_Symbol, _} | {_Symbol, _, _String}, _List}).., OptionsPattern[] ] := 
 With[{
   vars = Map[makeVariableObject, Unevaluated @ List[paramters] ], 
   plotPoints = OptionValue["SamplingPoints"]
@@ -403,9 +479,10 @@ With[{
 
   With[{
     (* wrap f to a pure function *)
-    anonymous = With[{s = Extract[#, "Symbol", TempHeld] &/@ Join[{<|"Symbol":>t|>}, vars]},
-
-                  makeFunction[f, s] /. {TempHeld[x_] -> x} // Quiet
+    anonymous = With[{s = Extract[#, "Symbol", Hold] &/@ Join[{<|"Symbol":>t|>}, vars]},
+                  With[{vlist = Hold[s] /. {Hold[u_Symbol] :> u}},
+                    makeFunction[vlist, f]
+                  ]
               ],
     
     size = OptionValue[ImageSize],
