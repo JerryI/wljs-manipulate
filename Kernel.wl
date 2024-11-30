@@ -80,6 +80,13 @@ useCache[hash_, f_, values_] := If[KeyExistsQ[Manipulate`Cached[hash], values],
 SetAttributes[TempHeld, HoldAll]
 
 
+checkIfFunction[_Symbol] := False;
+checkIfFunction[_] := True
+
+checkIfFunction[_Notebook`Editor`Internal`$PreviousOut] := False
+
+SetAttributes[checkIfFunction, HoldFirst]
+
 Manipulate[f_, parameters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?NumericQ, _String}, ___?NumericQ} | {_Symbol | {_Symbol, _} | {_Symbol, _, _String}, _List}).., OptionsPattern[] ] := Module[{Global`code, sliders}, With[{
   vars = Map[makeVariableObject, Unevaluated @ List[parameters] ],
   hash = Hash[{f, parameters}]
@@ -97,8 +104,8 @@ Manipulate[f_, parameters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?Numeri
     (* wrap f into a pure function *)
     anonymous = With[{s = Extract[#, "Symbol", Hold] &/@ vars},
 
-                  With[{vlist = Hold[s] /. {Hold[u_Symbol] :> u}},
-                    makeFunction[vlist, f]
+                  With[{vlist = Hold[s] /. {Hold[u_Symbol] :> u}, checked = checkIfFunction[f]},
+                    makeFunction[vlist, f,  checked]
                   ]
               ]
     },
@@ -245,9 +252,20 @@ SetAttributes[makeVariableObject, HoldAll]
 
 
 ClearAll[makeFunction];
-makeFunction[Hold[list_], f_] := If[MatchQ[list, {__Symbol}],
+makeFunction[Hold[list_], f_, ___] := If[MatchQ[list, {__Symbol}],
   With[{l = list, ff = f},
     Function @@ {l, ff}
+  ]
+,
+
+  Internal`LocalizedBlock[list,
+    Function[list, f]
+  ]
+]
+
+makeFunction[Hold[list_], f_, True] := If[MatchQ[list, {__Symbol}],
+  With[{l = list, ff = f},
+    Function[list, f]
   ]
 ,
 
