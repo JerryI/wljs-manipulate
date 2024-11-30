@@ -357,7 +357,7 @@ With[{
 singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, Global`pts, sampler, plotRange},
       (* sampling of f *)
       sampler[a_] := Select[
-        Table[tracer[t, anonymous @@ Join[{t}, a] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
+        Table[tracer[t, anonymous @@ Join[{t}, a] ]// N, {t, tmin, tmax, (tmax-tmin)/plotPoints}] 
       , AllTrue[#, RealValuedNumericQ]&];
 
 
@@ -407,7 +407,7 @@ singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, o
 multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler, Global`pts, plotRange},
 
       sampler[a_] := Select[
-        Table[anonymous @@ Join[{t}, a], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
+        Table[anonymous @@ Join[{t}, a]// N, {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&] // Transpose;
 
 
