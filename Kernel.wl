@@ -310,7 +310,7 @@ With[{
     
     Module[{pts, plotRange = OptionValue[PlotRange], sampler},
 
-      (* a function that samples our expression and filters out "bad" values *)
+
       sampler[args_] := Select[
         Table[tracer[t, anonymous @@ Join[{t}, args] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[# // Flatten, RealValuedNumericQ]&];
@@ -322,11 +322,6 @@ With[{
         Message[manipulatePlot::nonreal];
         Return[$Failed];
       ];
-
-      If[plotRange === Automatic,
-        plotRange = 1.1 {MinMax[pts[[All,1]]], MinMax[pts[[All,2]] // Flatten]};
-      ];
-
 
 
       With[{
@@ -359,17 +354,31 @@ With[{
 ]
 
 
-singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, Global`pts, sampler},
+singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, Global`pts, sampler, plotRange},
       (* sampling of f *)
       sampler[a_] := Select[
         Table[tracer[t, anonymous @@ Join[{t}, a] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&];
+
 
     (* 
        ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
        Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
     *) 
       Global`pts = sampler[#["Initial"] &/@ vars];
+
+      If[Length[Global`pts] == 0,
+        Message[manipulatePlot::nonreal];
+        Return[$Failed];
+      ];
+
+      plotRange = Lookup[Association[opts], PlotRange, Automatic];
+
+      If[plotRange === Automatic,
+        plotRange = With[{p = {MinMax[Global`pts[[All,1]]], MinMax[Global`pts[[All,2]] // Flatten]}},
+          {(p[[1]] - Mean[p[[1]]]) 1.1 + Mean[p[[1]]],  (p[[2]] - Mean[p[[2]]]) 1.1 + Mean[p[[2]]]}
+        ];
+      ];
       
       (* controls *)
       sliders = Switch[#["Controller"],
@@ -390,12 +399,12 @@ singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, o
 
 
       Row[{
-          Graphics[{AbsoluteThickness[2], style[[1]], Line[Global`pts // Offload]}, opts],
+          Graphics[{AbsoluteThickness[2], style[[1]], Line[Global`pts // Offload]}, opts, PlotRange->plotRange],
           sliders
       }]
 ]
 
-multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler, Global`pts},
+multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler, Global`pts, plotRange},
 
       sampler[a_] := Select[
         Table[anonymous @@ Join[{t}, a], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
@@ -407,6 +416,20 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
        Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
     *) 
       Global`pts = sampler[#["Initial"] &/@ vars];
+
+
+      plotRange = Lookup[Association[opts], PlotRange, Automatic];
+
+      If[plotRange === Automatic,
+        plotRange = {
+          With[{p = {tmin, tmax}},
+            (p - Mean[p]) 1.1 + Mean[p]
+          ],
+          With[{p = MinMax[Global`pts // Flatten]},
+            (p - Mean[p]) 1.1 + Mean[p]
+          ]
+        };
+      ];      
       
       sliders = Switch[#["Controller"],
                   InputRange,
@@ -421,7 +444,7 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
 
       sliders = InputGroup[sliders];
       
-      EventHandler[sliders, Function[data, Global`pts = sampler[data]]];
+      EventHandler[sliders, Function[data, Global`pts = sampler[data] ] ];
 
 
       Row[{
@@ -437,10 +460,10 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
                 points = Transpose[{xaxis, Global`pts[[i]]}]
               },
                 points
-              ]]} // Offload
+              ] ] } // Offload
             ]
             , {i, traces}]
-          }, opts],
+          }, opts, PlotRange->plotRange],
           sliders
       }]
 ]
