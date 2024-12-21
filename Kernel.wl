@@ -87,7 +87,7 @@ checkIfFunction[_Notebook`Editor`Internal`$PreviousOut] := False
 
 SetAttributes[checkIfFunction, HoldFirst]
 
-Manipulate[f_, parameters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?NumericQ, _String}, ___?NumericQ} | {_Symbol | {_Symbol, _} | {_Symbol, _, _String}, _List}).., OptionsPattern[] ] := Module[{Global`code, sliders}, With[{
+Manipulate[f_, parameters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?NumericQ, _String}, ___?NumericQ} | {_Symbol | {_Symbol, _} | {_Symbol, _, _String}, _List}).., OptionsPattern[] ] := Module[{System`code, sliders}, With[{
   vars = Map[makeVariableObject, Unevaluated @ List[parameters] ],
   hash = Hash[{f, parameters}]
 },
@@ -114,7 +114,7 @@ Manipulate[f_, parameters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?Numeri
          ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
          Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
       *)
-      Global`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, (#["Initial"] &/@ vars) ];
+      System`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, (#["Initial"] &/@ vars) ];
       
       (* controls *)
       sliders = Switch[#["Controller"],
@@ -131,12 +131,12 @@ Manipulate[f_, parameters:({_Symbol | {_Symbol, _?NumericQ} | {_Symbol, _?Numeri
       sliders = InputGroup[sliders];
       
       (* update expression when any slider is dragged *)
-      EventHandler[sliders, Function[data, Global`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, data] ] ];
+      EventHandler[sliders, Function[data, System`code = useCache[hash, ToString[anonymous @@ #, StandardForm]&, data] ] ];
 
 
       Column[{
           sliders,
-          EditorView[Global`code // Offload] (* EditorView works only with strings *)
+          EditorView[System`code // Offload] (* EditorView works only with strings *)
       }]
     ]
 ]]
@@ -167,16 +167,16 @@ Refresh /: MakeBoxes[Refresh[expr_, updateInterval_Quantity | updateInterval_?Nu
        ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
        Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
     *)    
-    Global`str = ToString[evaluated, StandardForm]
+    System`str = ToString[evaluated, StandardForm]
   },
 
   (* event is fired from JS side (RefreshBox) *)
       EventHandler[event, Function[Null,
-        Global`str = ToString[expr, StandardForm]
+        System`str = ToString[expr, StandardForm]
       ] ];
 
     With[{
-      editor = EditorView[Global`str // Offload, "ReadOnly"->True] 
+      editor = EditorView[System`str // Offload, "ReadOnly"->True] 
     },
     
         ViewBox[evaluated, RefreshBox[editor, event, interval] ]
@@ -189,16 +189,16 @@ Refresh /: MakeBoxes[Refresh[expr_, ev_String | ev_EventObject, OptionsPattern[]
   evaluated = expr
 },
   LeakyModule[{
-    Global`str = ToString[evaluated, StandardForm]
+    System`str = ToString[evaluated, StandardForm]
   },
   
   (* event is fired from WL side *)
     EventHandler[ev, Function[Null,
-        Global`str = ToString[expr, StandardForm]
+        System`str = ToString[expr, StandardForm]
     ] ];
 
     With[{
-      editor = EditorView[Global`str // Offload, "ReadOnly"->True] 
+      editor = EditorView[System`str // Offload, "ReadOnly"->True] 
     },
 
       ViewBox[evaluated, RefreshBox[editor, event, 0] ]
@@ -372,7 +372,7 @@ With[{
 ]
 
 
-singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, Global`pts, sampler, plotRange},
+singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, System`pts, sampler, plotRange},
       (* sampling of f *)
       sampler[a_] := Select[
         Table[tracer[t, anonymous @@ Join[{t}, a] ]// N, {t, tmin, tmax, (tmax-tmin)/plotPoints}] 
@@ -383,9 +383,9 @@ singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, o
        ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
        Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
     *) 
-      Global`pts = sampler[#["Initial"] &/@ vars];
+      System`pts = sampler[#["Initial"] &/@ vars];
 
-      If[Length[Global`pts] == 0,
+      If[Length[System`pts] == 0,
         Message[manipulatePlot::nonreal];
         Return[$Failed];
       ];
@@ -393,7 +393,7 @@ singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, o
       plotRange = Lookup[Association[opts], PlotRange, Automatic];
 
       If[plotRange === Automatic,
-        plotRange = With[{p = {MinMax[Global`pts[[All,1]]], MinMax[Global`pts[[All,2]] // Flatten]}},
+        plotRange = With[{p = {MinMax[System`pts[[All,1]]], MinMax[System`pts[[All,2]] // Flatten]}},
           {(p[[1]] - Mean[p[[1]]]) 1.1 + Mean[p[[1]]],  (p[[2]] - Mean[p[[2]]]) 1.1 + Mean[p[[2]]]}
         ];
       ];
@@ -413,16 +413,16 @@ singleTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, o
       sliders = InputGroup[sliders];
       
       (* update pts when dragged *)
-      EventHandler[sliders, Function[data, Global`pts = sampler[data] ] ];
+      EventHandler[sliders, Function[data, System`pts = sampler[data] ] ];
 
 
       Row[{
-          Graphics[{AbsoluteThickness[2], style[[1]], Line[Global`pts // Offload]}, opts, PlotRange->plotRange],
+          Graphics[{AbsoluteThickness[2], style[[1]], Line[System`pts // Offload]}, opts, PlotRange->plotRange],
           sliders
       }]
 ]
 
-multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler, Global`pts, plotRange},
+multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, opts__] := Module[{sliders, sampler, System`pts, plotRange},
 
       sampler[a_] := Select[
         Table[anonymous @@ Join[{t}, a]// N, {t, tmin, tmax, (tmax-tmin)/plotPoints}]
@@ -433,7 +433,7 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
        ExpressionJSON works with contexts in a bit sketchy way if it is executed from a package. 
        Use Global` or System` or any other contexts explicitly to void conflicts for dynamic symbols
     *) 
-      Global`pts = sampler[#["Initial"] &/@ vars];
+      System`pts = sampler[#["Initial"] &/@ vars];
 
 
       plotRange = Lookup[Association[opts], PlotRange, Automatic];
@@ -443,7 +443,7 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
           With[{p = {tmin, tmax}},
             (p - Mean[p]) 1.1 + Mean[p]
           ],
-          With[{p = MinMax[Global`pts // Flatten]},
+          With[{p = MinMax[System`pts // Flatten]},
             (p - Mean[p]) 1.1 + Mean[p]
           ]
         };
@@ -462,7 +462,7 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
 
       sliders = InputGroup[sliders];
       
-      EventHandler[sliders, Function[data, Global`pts = sampler[data] ] ];
+      EventHandler[sliders, Function[data, System`pts = sampler[data] ] ];
 
 
       Row[{
@@ -475,7 +475,7 @@ multipleTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, styl
             },
               
               {color, Line[With[{
-                points = Transpose[{xaxis, Global`pts[[i]]}]
+                points = Transpose[{xaxis, System`pts[[i]]}]
               },
                 points
               ] ] } // Offload
@@ -581,31 +581,31 @@ With[{
   ]
 ]
 
-singleAnimatedTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, Rule[Epilog, epilog_], Rule[AnimationRate, rate_], opts__] := Module[{dataset = {}, sliders, Global`pts, sampler, ranges},
+singleAnimatedTrace[tracer_, anonymous_, t_, tmin_, tmax_, plotPoints_, style_, vars_, Rule[Epilog, epilog_], Rule[AnimationRate, rate_], opts__] := Module[{dataset = {}, sliders, System`pts, sampler, ranges},
       (* sampling of f *)
       sampler[a_] := Select[
         Table[tracer[t, anonymous @@ Join[{t}, a] ], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&];
 
-      Global`pts = sampler[#["Initial"] &/@ vars];
+      System`pts = sampler[#["Initial"] &/@ vars];
       
       (* ranges *)
       ranges = With[{j =First[vars]}, Table[{i}, {i, j["Min"], j["Max"], j["Step"]}] ];
       
       dataset = sampler /@ ranges;
 
-      Graphics[{AbsoluteThickness[2], style[[1]], Line[Global`pts // Offload]}, Epilog->{Animate`Shutter[Global`pts, dataset, rate], epilog}, opts]
+      Graphics[{AbsoluteThickness[2], style[[1]], Line[System`pts // Offload]}, Epilog->{Animate`Shutter[System`pts, dataset, rate], epilog}, opts]
 ]
 
 SetAttributes[Animate`Shutter, HoldFirst];
 
-multipleAnimatedTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, Rule[Epilog, epilog_], Rule[AnimationRate, rate_], opts__] := Module[{sliders, ranges, dataset, sampler, Global`pts},
+multipleAnimatedTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoints_, style_, vars_, Rule[Epilog, epilog_], Rule[AnimationRate, rate_], opts__] := Module[{sliders, ranges, dataset, sampler, System`pts},
 
       sampler[a_] := Select[
         Table[anonymous @@ Join[{t}, a], {t, tmin, tmax, (tmax-tmin)/plotPoints}]
       , AllTrue[#, RealValuedNumericQ]&] // Transpose;
 
-      Global`pts = sampler[#["Initial"] &/@ vars];
+      System`pts = sampler[#["Initial"] &/@ vars];
       
       ranges = With[{j =First[vars]}, Table[{i}, {i, j["Min"], j["Max"], j["Step"]}] ];
       
@@ -621,13 +621,13 @@ multipleAnimatedTraces[tracer_, anonymous_, traces_, t_, tmin_, tmax_, plotPoint
             },
               
               {color, Line[With[{
-                points = Transpose[{xaxis, Global`pts[[i]]}]
+                points = Transpose[{xaxis, System`pts[[i]]}]
               },
                 points
               ] ]} // Offload
             ]
             , {i, traces}]
-      }, Epilog->{Animate`Shutter[Global`pts, dataset, rate], epilog}, opts]
+      }, Epilog->{Animate`Shutter[System`pts, dataset, rate], epilog}, opts]
 ]
 
 SetAttributes[singleAnimatedTrace, HoldAll]
